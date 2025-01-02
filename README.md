@@ -64,6 +64,6 @@ Open the local URL (e.g., http://localhost:XXXX) to access the app.
 
 ### 7. **Usage**
 - Input text in the text area.
-- Click "Classify Sentence" to get the predicted language of the text.
+- Click "Detect Languages" to get the predicted language of the text.
 
 
