@@ -1,157 +1,122 @@
 import streamlit as st
-import joblib
-import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import numpy as np
+import joblib
+from langdetect import detect
 
-# Function to load resources like the model, tokenizer, and encoder
-def load_resources():
-    # Load the tokenizer (replace with your tokenizer path)
-    tokenizer = joblib.load('tokenizer.joblib')
+# Load the trained model
+model = load_model("gru_model.h5")
 
-    # Load the encoder (replace with your encoder path)
-    encoder = joblib.load('label_encoder.joblib')
+# Define the max sequence length
+MAX_SEQUENCE_LENGTH = 100
 
-    # Load the GRU model (replace with your model path)
-    model = load_model('gru_model.h5')
-    
-    return tokenizer, encoder, model
+# Load the tokenizer
+tokenizer = joblib.load("tokenizer.joblib")
 
-# Function to predict the class of the input text
-def predict_class(input_text, tokenizer, encoder, model):
-    # Tokenize and pad the input text
-    sequence = tokenizer.texts_to_sequences([input_text])
-    padded_sequence = pad_sequences(sequence, maxlen=100)  # Adjust maxlen as per your model's requirement
-    
-    # Predict the class
-    prediction = model.predict(padded_sequence)
-    
-    # Get the predicted class index and the label
-    predicted_class_index = np.argmax(prediction, axis=1)[0]
-    predicted_class_label = encoder.inverse_transform([predicted_class_index])[0]
-    
-    return predicted_class_index, predicted_class_label
+# Load the label encoder
+label_encoder = joblib.load("label_encoder.joblib")
 
-# Function to load model resources only once using Streamlit's session state
-def load_model_resources():
-    if 'tokenizer' not in st.session_state:
-        # Load the resources (tokenizer, encoder, model) into session state
-        st.session_state.tokenizer, st.session_state.encoder, st.session_state.model = load_resources()
+# Preprocessing function
+def preprocess_input(input_text):
+    tokenized_input = tokenizer.texts_to_sequences([input_text])
+    padded_input = pad_sequences(tokenized_input, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
+    return padded_input
 
-# Load model resources on app start
-load_model_resources()
+# Prediction function
+def predict_language(input_text):
+    preprocessed_input = preprocess_input(input_text)
+    predictions = model.predict(preprocessed_input)
+    predicted_language = label_encoder.inverse_transform([np.argmax(predictions)])
+    return predicted_language[0]
 
-# Set page configuration
+# Multilingual prediction function
+def predict_multilingual(input_text):
+    sentences = input_text.split('.')
+    detected_languages = {}
+
+    for sentence in sentences:
+        if sentence.strip():
+            lang = detect(sentence)
+            predicted_lang = predict_language(sentence)
+
+            if predicted_lang not in detected_languages:
+                detected_languages[predicted_lang] = []
+            detected_languages[predicted_lang].append(sentence.strip())
+
+    return detected_languages
+
+# Streamlit UI
 st.set_page_config(
-    page_title="Text Classification with GRU Model - LingualSense",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="LingualSense",
+    page_icon="🌐",
+    layout="wide"
 )
 
-# Add background styling
-st.markdown(
-    """
+# Custom CSS for Styling
+st.markdown("""
     <style>
-    /* Background gradient */
-    body {
-        background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
-        color: #000000;
-    }
-
-    /* Title styling */
-    h1 {
-        font-size: 3rem;
-        text-align: center;
-        color: #4b0082; /* Indigo color for the title */
-        margin-bottom: 10px;
-    }
-
-    /* Subheader styling */
-    p {
-        text-align: center;
-        color: #333333; /* Dark gray for the subheader */
-        font-size: 1.2rem;
-    }
-
-    /* Input box styling */
-    .stTextArea {
-        border-radius: 8px;
-        background-color: #ffffff;
-        padding: 10px;
-        font-size: 1.2rem;
-        color: #333333;
-    }
-
-    /* Button styling */
-    button[kind="primary"] {
-        background-color: #ff4500 !important; /* Orange-red for the button */
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-size: 1rem !important;
-        padding: 10px 20px !important;
-    }
-
-    /* Footer styling */
-    .footer {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
-        text-align: center;
-        color: #4b0082; /* Indigo for the footer text */
-        font-size: 0.9rem;
-    }
-
+        .main-header {
+            font-size: 42px;
+            color: #1E90FF;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .sub-header {
+            font-size: 20px;
+            text-align: center;
+            color: #555555;
+            margin-bottom: 25px;
+        }
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2E8B57;
+            margin-bottom: 10px;
+        }
+        .footer {
+            font-size: 14px;
+            text-align: center;
+            margin-top: 50px;
+            color: #888888;
+        }
+        .result-header {
+            font-size: 22px;
+            color: #4CAF50;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .sentence {
+            font-size: 16px;
+            color: #333333;
+            margin-left: 20px;
+        }
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
-# Add title and subheader
-st.markdown("<h1>Text Classification with GRU Model</h1>", unsafe_allow_html=True)
-st.markdown("<p>Enter a sentence below and click 'Classify Sentence' to predict its class.</p>", unsafe_allow_html=True)
+st.markdown('<div class="main-header">🌐 LingualSense</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Effortlessly detect languages in your text with AI!</div>', unsafe_allow_html=True)
 
-# Input text area
-input_sentence = st.text_area(
-    "Input Text",
-    height=100,
-    placeholder="Type your text here (e.g., 'If this solves the problem...')",
-)
+# Sidebar Input Section
+st.sidebar.markdown('<div class="sidebar-title">Upload or Type Text</div>', unsafe_allow_html=True)
+input_text = st.sidebar.text_area("Paste your text below:")
 
-# Predict button
-if st.button("Classify Sentence", key="predict_button", help="Click to predict the class of the input sentence"):
-    if input_sentence:
-        # Load resources from session state
-        tokenizer = st.session_state.tokenizer
-        encoder = st.session_state.encoder
-        model = st.session_state.model
-
-        # Get prediction
-        predicted_class_index, predicted_class_label = predict_class(input_sentence, tokenizer, encoder, model)
-
-        # Display result in a card
-        st.markdown(
-            f"""
-            <div style="background-color: #ffffff; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);">
-                <h3 style="text-align: center; color: #333333;">The given text is <strong>{predicted_class_label}</strong></h3> <!-- Dark gray -->
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+# Detect Languages Button
+if st.sidebar.button("Detect Languages"):
+    if input_text.strip():
+        with st.spinner("Analyzing your text..."):
+            results = predict_multilingual(input_text)
+        st.success("Languages Detected Successfully!")
+        
+        # Display Results
+        st.markdown('<div class="result-header">Detected Languages and Corresponding Sentences:</div>', unsafe_allow_html=True)
+        for language, sentences in results.items():
+            st.markdown(f"### {language}")
+            for sentence in sentences:
+                st.markdown(f'<div class="sentence">- {sentence}</div>', unsafe_allow_html=True)
     else:
-        st.warning("Please enter a sentence to predict the class.", icon="⚠️")
+        st.sidebar.warning("Please enter some text.")
 
-# Add some spacing
-st.markdown("<br><br>", unsafe_allow_html=True)
-
-# Footer with branding
-st.markdown(
-    """
-    <div class="footer">
-        <hr>
-        <p>Powered by LingualSense and GRU Model | <a href="https://github.com" target="_blank" style="color: #ff4500; text-decoration: underline;">GitHub</a></p> <!-- Orange-red -->
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# Footer Section
+st.markdown('<div class="footer">© 2024 LingualSense | Powered by AI and Deep Learning</div>', unsafe_allow_html=True)
