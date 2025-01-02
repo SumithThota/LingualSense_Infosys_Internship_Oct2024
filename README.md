@@ -60,7 +60,7 @@ LingualSense is a deep learning project for classifying text languages. This REA
 - Execute the following command:
   ```bash
   streamlit run app.py
-Open the local URL (e.g., http://localhost:8501) to access the app.
+Open the local URL (e.g., http://localhost:XXXX) to access the app.
 
 ### 7. **Usage**
 - Input text in the text area.
